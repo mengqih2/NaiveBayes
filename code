@@ -1,0 +1,99 @@
+import sys
+import math
+raw_data = []
+train_data = []
+predict_data = []
+count = 0
+category_idx = -1
+train_y = []
+for line in sys.stdin:
+    count += 1
+    if count > 1:
+        temp = line.rstrip().split(",")
+        raw_data.append(temp)
+    else:
+        feature_list = list(line.rstrip().split(","))
+animal_name_idx = -1
+for i in range(len(feature_list)):
+    if feature_list[i] == 'animal_name':
+        animal_name_idx = i
+if animal_name_idx > -1:
+    for j in raw_data:
+        del j[animal_name_idx]
+feature_list.pop(animal_name_idx)
+class_type_idx = -1
+for i in range(len(feature_list)):
+    if feature_list[i] == 'class_type':
+        class_type_idx = i
+for j in range(len(raw_data)):
+    if raw_data[j][class_type_idx] == '-1':
+        temp_row = raw_data[j].copy()
+        temp_row.pop(class_type_idx)
+        predict_data.append(temp_row)
+    else:
+        temp_row = raw_data[j].copy()
+        train_y.append(int(temp_row[class_type_idx]))
+        temp_row.pop(class_type_idx)
+        train_data.append(temp_row)
+feature_list.pop(class_type_idx)
+for i in range(len(train_data)):
+    train_data[i] = list(map(int, train_data[i]))
+for j in range(len(predict_data)):
+    predict_data[j] = list(map(int, predict_data[j]))
+for i in range(len(feature_list)):
+    if feature_list[i] == 'legs':
+        category_idx = i
+num_variable = len(feature_list)
+count = {}
+for i in range(1,8):
+    count[i] = {}
+    for j in range(num_variable):
+        if j == category_idx:
+            count[i][j] = [0,0,0,0,0,0]
+        else:
+            count[i][j] = [0,0]
+for i in range(len(train_data)):
+     for j in range(num_variable):
+            if category_idx >= 0 and j == category_idx:
+                idx = math.floor(train_data[i][j]/1.5)
+                count[train_y[i]][j][idx] += 1
+            else:
+                count[train_y[i]][j][train_data[i][j]] += 1
+prob = {}
+for i in range(1,8):
+    prob[i] = {}
+    for j in range(num_variable):
+        if category_idx >= 0 and j == category_idx:
+            prob[i][j] = [0,0,0,0,0,0]
+        else:
+            prob[i][j] = [0,0]
+prior_prob = {1:0,2:0, 3:0, 4:0, 5:0, 6:0,7:0}
+for i in range(len(train_data)):
+    prior_prob[train_y[i]] += 1
+for i in range(1,8):
+    for j in range(num_variable):
+        if category_idx >= 0 and j == category_idx:
+            temp_tot = prior_prob[i] + 6 * 0.1
+            for k in range(6):
+                prob[i][j][k] = (count[i][j][k] + 0.1)/temp_tot
+        else:
+            temp_tot = prior_prob[i] + 2 * 0.1
+            for k in range(2):
+                prob[i][j][k] = (count[i][j][k] + 0.1)/temp_tot
+for key in prior_prob:
+    prior_prob[key] = (prior_prob[key]+ 0.1)/(len(train_data)+0.7)
+for case_idx in range(len(predict_data)):
+    best_label = 0
+    highest_post = -100
+    for i in range(1,8):
+        temp_post = math.log(prior_prob[i])
+        for j in range(num_variable):
+            if category_idx >= 0 and j == category_idx:
+                idx = math.floor(predict_data[case_idx][j]/1.5)
+            else:
+                idx = predict_data[case_idx][j]
+            temp_post += math.log(prob[i][j][idx])
+        if temp_post > highest_post:
+            highest_post = temp_post
+            best_label = i
+    print(best_label)
